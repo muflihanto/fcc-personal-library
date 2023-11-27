@@ -8,6 +8,8 @@
 
 "use strict";
 
+const { ObjectId } = require("mongodb");
+
 /**
  * @param {import('express').Express} app - Express app instance
  * @param {import('mongodb').Db} database - Database instance
@@ -43,7 +45,7 @@ module.exports = function (app, database) {
       //response will contain new book object including atleast _id and title
       const title = req.body.title;
 
-      if (title === undefined) return res.status(400).send("missing required field title");
+      if (title === undefined) return res.status(200).send("missing required field title");
 
       collection
         .insertOne({
@@ -76,18 +78,84 @@ module.exports = function (app, database) {
   app
     .route("/api/books/:id")
     .get(function (req, res) {
-      let bookid = req.params.id;
+      const bookid = req.params.id;
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
+      let bookObjectId;
+      try {
+        bookObjectId = new ObjectId(bookid);
+      } catch (_) {
+        return res.send("no book exists");
+      }
+
+      collection
+        .findOne({
+          _id: bookObjectId,
+        })
+        .then((doc) => {
+          if (doc === null) return res.send("no book exists");
+          return res.json(doc);
+        })
+        .catch(() => {
+          res.status(500).send("failed retrieving book information");
+        });
     })
 
     .post(function (req, res) {
-      let bookid = req.params.id;
-      let comment = req.body.comment;
+      const bookid = req.params.id;
+      const comment = req.body.comment;
       //json res format same as .get
+      let bookObjectId;
+      try {
+        bookObjectId = new ObjectId(bookid);
+      } catch (_) {
+        return res.send("no book exists");
+      }
+
+      if (comment === undefined) return res.send("missing required field comment");
+
+      collection
+        .findOneAndUpdate(
+          {
+            _id: bookObjectId,
+          },
+          {
+            $push: {
+              comments: comment,
+            },
+          },
+          {
+            returnDocument: "after",
+          }
+        )
+        .then((doc) => {
+          if (doc === null) return res.send("no book exists");
+          return res.json(doc);
+        });
     })
 
     .delete(function (req, res) {
-      let bookid = req.params.id;
+      const bookid = req.params.id;
       //if successful response will be 'delete successful'
+      let bookObjectId;
+      try {
+        bookObjectId = new ObjectId(bookid);
+      } catch (_) {
+        return res.send("no book exists");
+      }
+
+      collection
+        .deleteOne({
+          _id: bookObjectId,
+        })
+        .then((result) => {
+          if (result.deletedCount === 1) {
+            return res.send("delete successful");
+          } else {
+            return res.send("no book exists");
+          }
+        })
+        .catch(() => {
+          res.status(500).send("cannot delete a book");
+        });
     });
 };

@@ -58,7 +58,7 @@ suite("Functional Tests", function () {
           .post("/api/books")
           .send({})
           .end(function (_, res) {
-            assert.equal(res.status, 400);
+            assert.equal(res.status, 200);
             assert.strictEqual(res.text, "missing required field title", 'Error message should be "missing required field title"');
             done();
           });
