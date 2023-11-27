@@ -18,26 +18,59 @@ module.exports = function (app, database) {
   app
     .route("/api/books")
     .get(function (req, res) {
+      //response will be array of book objects
+      //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
       collection
         .find({})
         .toArray()
         .then((docs) => {
-          res.json(docs);
+          const newDocs = docs.map((doc) => {
+            const commentcount = doc.comments.length;
+            delete doc.comments;
+            return {
+              ...doc,
+              commentcount,
+            };
+          });
+          res.json(newDocs);
         })
         .catch((_) => {
           res.status(404).json({ result: "not found" });
         });
-      //response will be array of book objects
-      //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
     })
 
     .post(function (req, res) {
-      let title = req.body.title;
       //response will contain new book object including atleast _id and title
+      const title = req.body.title;
+
+      if (title === undefined) return res.status(400).send("missing required field title");
+
+      collection
+        .insertOne({
+          title,
+          comments: [],
+        })
+        .then((doc) => {
+          res.json({
+            title,
+            _id: doc.insertedId,
+          });
+        })
+        .catch(() => {
+          res.status(500).send("cannot insert a book");
+        });
     })
 
     .delete(function (req, res) {
       //if successful response will be 'complete delete successful'
+      collection
+        .deleteMany({})
+        .then(() => {
+          res.send("complete delete successful");
+        })
+        .catch(() => {
+          res.status(500).send("cannot delete all books");
+        });
     });
 
   app
